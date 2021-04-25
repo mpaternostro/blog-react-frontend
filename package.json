@@ -9,8 +9,9 @@
     "react-scripts": "2.0.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "react-scripts start cross-env NODE_ENV=development",
+    "start:prod": "react-scripts start cross-env NODE_ENV=production",
+    "build": "react-scripts build cross-env NODE_ENV=production",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -22,5 +23,8 @@
     "not dead",
     "not ie <= 11",
     "not op_mini all"
-  ]
+  ],
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  }
 }

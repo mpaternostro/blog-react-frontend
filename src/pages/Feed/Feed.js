@@ -8,6 +8,7 @@ import Paginator from '../../components/Paginator/Paginator';
 import Loader from '../../components/Loader/Loader';
 import ErrorHandler from '../../components/ErrorHandler/ErrorHandler';
 import './Feed.css';
+import { API_URL } from '../../constants';
 
 class Feed extends Component {
   state = {
@@ -50,7 +51,7 @@ class Feed extends Component {
       page--;
       this.setState({ postPage: page });
     }
-    fetch('URL')
+    fetch(`${API_URL}/feed/posts?page=${page}`)
       .then(res => {
         if (res.status !== 200) {
           throw new Error('Failed to fetch posts.');
@@ -58,8 +59,12 @@ class Feed extends Component {
         return res.json();
       })
       .then(resData => {
+        const posts = resData.posts.map((post) => ({
+          ...post,
+          imagePath: post.imageUrl,
+        }));
         this.setState({
-          posts: resData.posts,
+          posts,
           totalPosts: resData.totalItems,
           postsLoading: false
         });
@@ -105,13 +110,21 @@ class Feed extends Component {
     this.setState({
       editLoading: true
     });
-    // Set up data (with image!)
-    let url = 'URL';
+    let url = `${API_URL}/feed/post`;
+    let method = "POST";
+    const formData = new FormData();
+    formData.append("title", postData.title);
+    formData.append("content", postData.content);
+    formData.append("image", postData.image);
     if (this.state.editPost) {
-      url = 'URL';
+      url = `${API_URL}/feed/post/${this.state.editPost._id}`;
+      method = "PUT";
     }
 
-    fetch(url)
+    fetch(url, {
+      method,
+      body: formData,
+    })
       .then(res => {
         if (res.status !== 200 && res.status !== 201) {
           throw new Error('Creating or editing a post failed!');
@@ -161,7 +174,11 @@ class Feed extends Component {
 
   deletePostHandler = postId => {
     this.setState({ postsLoading: true });
-    fetch('URL')
+    const url = `${API_URL}/feed/post/${postId}`;
+    const method = "DELETE";
+    fetch(url, {
+      method,
+    })
       .then(res => {
         if (res.status !== 200 && res.status !== 201) {
           throw new Error('Deleting a post failed!');
