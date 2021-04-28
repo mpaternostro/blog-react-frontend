@@ -11,13 +11,14 @@ import FeedPage from './pages/Feed/Feed';
 import SinglePostPage from './pages/Feed/SinglePost/SinglePost';
 import LoginPage from './pages/Auth/Login';
 import SignupPage from './pages/Auth/Signup';
+import { API_URL } from './constants';
 import './App.css';
 
 class App extends Component {
   state = {
     showBackdrop: false,
     showMobileNav: false,
-    isAuth: true,
+    isAuth: false,
     token: null,
     userId: null,
     authLoading: false,
@@ -99,8 +100,19 @@ class App extends Component {
 
   signupHandler = (event, authData) => {
     event.preventDefault();
+    const { email, password, name } = authData.signupForm;
     this.setState({ authLoading: true });
-    fetch('URL')
+    fetch(`${API_URL}/auth/signup`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.value,
+        password: password.value,
+        name: name.value,
+      }),
+    })
       .then(res => {
         if (res.status === 422) {
           throw new Error(
