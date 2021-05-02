@@ -51,7 +51,11 @@ class Feed extends Component {
       page--;
       this.setState({ postPage: page });
     }
-    fetch(`${API_URL}/feed/posts?page=${page}`)
+    fetch(`${API_URL}/feed/posts?page=${page}`, {
+      headers: {
+        Authorization: `Bearer ${this.props.token}`
+      },
+    })
       .then(res => {
         if (res.status !== 200) {
           throw new Error('Failed to fetch posts.');
@@ -124,6 +128,9 @@ class Feed extends Component {
     fetch(url, {
       method,
       body: formData,
+      headers: {
+        Authorization: `Bearer ${this.props.token}`
+      },
     })
       .then(res => {
         if (res.status !== 200 && res.status !== 201) {
@@ -178,6 +185,9 @@ class Feed extends Component {
     const method = "DELETE";
     fetch(url, {
       method,
+      headers: {
+        Authorization: `Bearer ${this.props.token}`
+      },
     })
       .then(res => {
         if (res.status !== 200 && res.status !== 201) {
