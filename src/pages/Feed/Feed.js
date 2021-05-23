@@ -103,10 +103,35 @@ class Feed extends Component {
       page--;
       this.setState({ postPage: page });
     }
-    fetch(`${API_URL}/feed/posts?page=${page}`, {
-      headers: {
-        Authorization: `Bearer ${this.props.token}`
+    const graphqlQuery = {
+      query: `
+        query getPosts($page: Int) {
+          posts(page: $page) {
+            posts {
+              _id
+              title
+              content
+              imageUrl
+              createdAt
+              creator {
+                name
+              }
+            }
+            totalItems
+          }
+        }
+      `,
+      variables: {
+        page,
       },
+    };
+    fetch(`${API_URL}/graphql`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.props.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(graphqlQuery),
     })
       .then(res => {
         if (res.status !== 200) {
@@ -115,13 +140,23 @@ class Feed extends Component {
         return res.json();
       })
       .then(resData => {
-        const posts = resData.posts.map((post) => ({
+        const errorStatusCode =
+          resData.errors &&
+          resData.errors[0] &&
+          resData.errors[0].statusCode;
+        if (errorStatusCode === 401) {
+          throw new Error(`Could not fetch posts. ${resData.errors[0].message}`);
+        }
+        if (resData.errors) {
+          throw new Error("Could not fetch posts.")
+        }
+        const posts = resData.data.posts.posts.map((post) => ({
           ...post,
           imagePath: post.imageUrl,
         }));
         this.setState({
           posts,
-          totalPosts: resData.totalItems,
+          totalPosts: resData.data.posts.totalItems,
           postsLoading: false
         });
       })
@@ -176,46 +211,83 @@ class Feed extends Component {
     this.setState({
       editLoading: true
     });
-    let url = `${API_URL}/feed/post`;
-    let method = "POST";
     const formData = new FormData();
-    formData.append("title", postData.title);
-    formData.append("content", postData.content);
     formData.append("image", postData.image);
+
     if (this.state.editPost) {
-      url = `${API_URL}/feed/post/${this.state.editPost._id}`;
-      method = "PUT";
+      formData.append("oldPath", this.state.editPost.imagePath);
     }
 
-    fetch(url, {
-      method,
-      body: formData,
+    fetch(`${API_URL}/post-image`, {
+      method: "PUT",
       headers: {
-        Authorization: `Bearer ${this.props.token}`
+        Authorization: `Bearer ${this.props.token}`,
       },
+      body: formData,
     })
-      .then(res => {
-        if (res.status !== 200 && res.status !== 201) {
-          throw new Error('Creating or editing a post failed!');
-        }
-        return res.json();
+    .then((response) => {
+      return response.json();
+    })
+    .then(({ filePath: imageUrl }) => {
+      const graphqlQuery = {
+        query: `
+          mutation createPost($input: PostInput!) {
+            createPost(input: $input) {
+              _id
+              title
+              content
+              imageUrl
+              createdAt
+              creator {
+                name
+              }
+            }
+          }
+        `,
+        variables: {
+          input: {
+            title: postData.title,
+            content: postData.content,
+            imageUrl,
+          },
+        },
+      };
+      return fetch(`${API_URL}/graphql`, {
+        method: "POST",
+        body: JSON.stringify(graphqlQuery),
+        headers: {
+          Authorization: `Bearer ${this.props.token}`,
+          "Content-Type": "application/json",
+        },
       })
-      .then(() => {
-        this.setState({
-          isEditing: false,
-          editPost: null,
-          editLoading: false
-        });
-      })
-      .catch(err => {
-        console.log(err);
-        this.setState({
-          isEditing: false,
-          editPost: null,
-          editLoading: false,
-          error: err
-        });
+    })
+    .then(res => {
+      return res.json();
+    })
+    .then((resData) => {
+      const errorStatusCode =
+        resData.errors &&
+        resData.errors[0] &&
+        resData.errors[0].statusCode;
+      if (errorStatusCode === 404 || errorStatusCode === 422) {
+        const [error] = resData.errors[0].errorList[0];
+        throw new Error(`Creating or editing a post failed. ${error}`);
+      }
+      this.setState({
+        isEditing: false,
+        editPost: null,
+        editLoading: false
       });
+    })
+    .catch(err => {
+      console.log(err);
+      this.setState({
+        isEditing: false,
+        editPost: null,
+        editLoading: false,
+        error: err
+      });
+    });
   };
 
   statusInputChangeHandler = (input, value) => {
