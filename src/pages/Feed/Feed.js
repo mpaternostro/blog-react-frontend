@@ -24,19 +24,40 @@ class Feed extends Component {
   };
 
   componentDidMount() {
-    fetch(`${API_URL}/user/status`, {
+    const graphqlQuery = {
+      query: `
+        query getUser {
+          user {
+            _id
+            status
+          }
+        }
+      `,
+    };
+    fetch(`${API_URL}/graphql`, {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${this.props.token}`,
-      }
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(graphqlQuery),
     })
       .then(res => {
-        if (res.status !== 200) {
-          throw new Error('Failed to fetch user status.');
-        }
         return res.json();
       })
       .then(resData => {
-        this.setState({ status: resData.status });
+        const errorStatusCode =
+          resData.errors &&
+          resData.errors[0] &&
+          resData.errors[0].statusCode;
+        if (errorStatusCode === 401 || errorStatusCode === 404) {
+          const error = resData.errors[0].message;
+          throw new Error(`Could not get user data. ${error}`);
+        }
+        if (resData.errors) {
+          throw new Error("Could not get user data.")
+        }
+        this.setState({ status: resData.data.user.status });
       })
       .catch(this.catchError);
     this.loadPosts();
@@ -134,9 +155,6 @@ class Feed extends Component {
       body: JSON.stringify(graphqlQuery),
     })
       .then(res => {
-        if (res.status !== 200) {
-          throw new Error('Failed to fetch posts.');
-        }
         return res.json();
       })
       .then(resData => {
@@ -165,25 +183,45 @@ class Feed extends Component {
 
   statusUpdateHandler = event => {
     event.preventDefault();
-    const body = JSON.stringify({
+    const graphqlQuery = {
+      query: `
+        mutation updateStatus($status: String!) {
+          updateStatus(status: $status) {
+            _id
+            status
+          }
+        }
+      `,
+      variables: {
       status: this.state.status,
-    })
-    fetch(`${API_URL}/user/status`, {
+      },
+    };
+    fetch(`${API_URL}/graphql`, {
       headers: {
         Authorization: `Bearer ${this.props.token}`,
         "Content-Type": "application/json",
       },
-      body,
-      method: "PATCH",
+      body: JSON.stringify(graphqlQuery),
+      method: "POST",
     })
       .then(res => {
-        if (res.status !== 200 && res.status !== 201) {
-          throw new Error("Can't update status!");
-        }
         return res.json();
       })
       .then(resData => {
-        console.log(resData);
+        const errorStatusCode =
+          resData.errors &&
+          resData.errors[0] &&
+          resData.errors[0].statusCode;
+        if (
+          errorStatusCode === 401 ||
+          errorStatusCode === 404
+        ) {
+          const error = resData.errors[0].message;
+          throw new Error(`Creating or editing a post failed. ${error}`);
+        }
+        if (resData.errors) {
+          throw new Error("Could not create or edit post.");
+        }
       })
       .catch(this.catchError);
   };
